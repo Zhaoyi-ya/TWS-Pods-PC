@@ -1,4 +1,4 @@
-# TWS-Pods-PC
+# TWS-Pods-PC（仅用来测试，并非最终版本）
 
 Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三方依赖**把各家私有耳机控制通道
 （降噪 / 电量 / 手势）搬到 PC 上。目前支持 **vivo、Huawei、Moondrop（水月雨）**。
