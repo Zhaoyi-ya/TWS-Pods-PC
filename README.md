@@ -81,7 +81,8 @@ python test_vivo.py  # 跑测试（其余对应 test_huawei.py / test_moondrop.p
 - **HuaweiPods** —— HUAWEI FreeBuds 控制协议（0x5A 私有帧 + CRC16/XMODEM、降噪/手势命令组）
 - **OPPO Pods for Windows** —— `ctypes` + 注册表 RFCOMM 真实连接与设备枚举方案
 - **Pods-Protocol-Reverse-Engineering**（Star-ZER0）—— Moondrop 手工逆向记录（GAIA 帧、降噪双字节映射、电量编码）
-- **1812z/OppoPods**、**moculll/ScrewVivoTWS** —— 协议研究参考
+- **moculll/ScrewVivoTWS** —— vivo TWS 3e 的 v3 参考 Profile（设置载荷 `mode 03`，见 `vivo_protocol.py`）
+- **1812z/OppoPods** —— 协议研究背景参考（OPPO Enco 系列，本项目未直接采用）
 
 ## License
 
