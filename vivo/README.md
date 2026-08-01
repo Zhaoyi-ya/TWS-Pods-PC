@@ -117,7 +117,17 @@ FF [version] [flags] [payloadLen] [vendor_hi] [vendor_lo] [cmd_hi] [cmd_lo] [pay
   内容为 vivo App 的**埋点/遥测事件 schema**（262 条 `A102|xxxxx` 事件、采集参数），
   不含耳机型号列表，也不含 RFCOMM 帧，与协议移植无关。
 
-许可：与上游一致，GNU GPL-3.0-only。协议研究参考 1812z/OppoPods、Star-ZER0、
-moculll/ScrewVivoTWS 及原项目实机抓包。
+## 致谢与开源协议
 
-统一许可与第三方来源见仓库根目录 [LICENSE](LICENSE) 与根 README「许可证与致谢」一节。
+本子项目随仓库整体以 **GNU GPL-3.0-only** 发布（完整文本见仓库根目录 [LICENSE](LICENSE)）；
+`vivo/` 派生自 GPL-3.0-only 的上游 **HyperEars** 项目，故须以相同许可发布。
+
+致谢以下逆向工程与开源工作（协议事实来源）：
+
+- **HyperEars**（vivo / iQOO TWS 协议来源，GPL-3.0-only）
+- **OPPO Pods for Windows**（`ctypes` + 注册表 RFCOMM 连接方案参考原型）：
+  <https://github.com/Zhaoyi-ya/OPPO-Pods-Win>
+- **1812z/OppoPods**、**moculll/ScrewVivoTWS**（协议研究参考）
+- **Star-ZER0/Pods-Protocol-Reverse-Engineering**（手工逆向记录；未声明许可证，仅作事实参考）
+
+各来源的许可状态、本项目自己的实机抓包与逐字节验证结果，详见仓库根 README「许可证与致谢」一节。
