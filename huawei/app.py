@@ -1,0 +1,452 @@
+"""
+HyperEars PC 看板（仅华为 FreeBuds）——Tkinter 实现
+
+信息架构与 vivo 版一致：设备会话列表 + 每设备卡片（识别/通道/协议/状态映射）
++ 顶部运行时卡片。
+
+连接能力：
+- 「连接模拟设备」：SimulatedTransport，离线即可演示完整管线（含电量模拟）。
+- 「真实连接（RFCOMM）」：WinSockRfcommTransport，纯 ctypes 调 ws2_32.dll（零依赖、免 winrt）。
+- 「列出已配对设备」：读注册表枚举已配对蓝牙，双击即用 Windows 原生 RFCOMM 连接。
+
+功能（参考 HuaweiPods-main）：
+- 降噪开关（0x2B/0x04）+ 降噪档位 0~8（0x2B/0x08，强度可调）。
+- 双击手势映射（0x01/0x1F）：左右耳分别配置动作。
+- 电量（尽力而为）：SPP 上发 ``AT+HUAWEIBATTERY?``，解析 ``+HUAWEIBATTERY=``
+  文本行；真机电量走 HFP，SPP 可能无响应（此时显示“电量未知”）。
+
+依赖：仅标准库（tkinter）。
+"""
+
+from __future__ import annotations
+
+import threading
+import tkinter as tk
+from tkinter import ttk
+from typing import Dict, List, Optional, Tuple
+
+from session import EarbudSession, Stage, STAGE_LABELS
+from transport import SimulatedTransport, WinSockRfcommTransport, list_paired_devices
+from huawei_models import is_family_name
+from huawei_protocol import (
+    AncMode,
+    GESTURE_LEFT,
+    GESTURE_RIGHT,
+    GestureAction,
+)
+
+# 枚举时的华为 / 荣耀家族关键词
+HUAWEI_KEYWORDS = ("huawei", "freebuds", "honor", "budse", "earbuds")
+
+# 双击手势可选动作（值 -> 中文标签）
+GESTURE_ACTION_LABELS = {
+    GestureAction.VOICE_ASSISTANT: "语音助手",
+    GestureAction.PLAY_PAUSE: "播放/暂停",
+    GestureAction.NOISE_CANCELLATION: "降噪切换",
+    GestureAction.PLAY_NEXT: "下一首",
+    GestureAction.NONE: "无",
+}
+GESTURE_ACTION_VALUES = list(GESTURE_ACTION_LABELS.keys())
+GESTURE_ACTION_NAMES = [GESTURE_ACTION_LABELS[a] for a in GESTURE_ACTION_VALUES]
+
+
+# ---- 深色主题配色（与 IDE 深色主题一致）----
+BG = "#1b1b1b"
+PANEL = "#242424"
+PANEL2 = "#2d2d2d"
+FG = "#e6e6e6"
+MUTED = "#9a9a9a"
+ACCENT = "#4f9dff"
+GREEN = "#3fb950"
+RED = "#f85149"
+PURPLE = "#bc8cff"
+CHIP_DONE = "#2ea043"
+CHIP_TODO = "#3a3a3a"
+
+
+STAGE_ORDER = [Stage.IDENTIFIED, Stage.CHANNEL, Stage.PROTOCOL, Stage.PUBLISHED]
+STAGE_COLOR = {
+    Stage.IDENTIFIED: MUTED,
+    Stage.CHANNEL: ACCENT,
+    Stage.PROTOCOL: PURPLE,
+    Stage.PUBLISHED: GREEN,
+    Stage.DISCONNECTED: RED,
+}
+
+
+def _mask(addr: str) -> str:
+    parts = addr.split(":")
+    if len(parts) == 6:
+        return f"{parts[0]}:{parts[1]}:{parts[2]}:**:**:**"
+    return addr
+
+
+class SessionCard(ttk.Frame):
+    def __init__(self, master, app, session: EarbudSession, transport, kind: str, **kw):
+        super().__init__(master, **kw)
+        self.app = app
+        self.session = session
+        self.transport = transport
+        self.kind = kind
+        self._build()
+        self.refresh()
+
+    def _build(self):
+        self.configure(style="Card.TFrame")
+        head = ttk.Frame(self, style="Card.TFrame")
+        head.pack(fill="x", padx=10, pady=(8, 4))
+        ttk.Label(head, text=self.session.display_name, style="Title.TLabel").pack(side="left")
+        ttk.Label(head, text=_mask(self.session.address), style="Muted.TLabel").pack(side="right")
+
+        sub = ttk.Frame(self, style="Card.TFrame")
+        sub.pack(fill="x", padx=10, pady=(0, 4))
+        ttk.Label(sub, text=f"通道：{self.kind}", style="Muted.TLabel").pack(side="left")
+        ttk.Button(sub, text="刷新", width=6, command=lambda: self.app.on_refresh(self.session)).pack(side="right", padx=(0, 6))
+        ttk.Button(sub, text="断开", width=6, command=lambda: self.app.on_disconnect(self.session)).pack(side="right")
+
+        chips = ttk.Frame(self, style="Card.TFrame")
+        chips.pack(fill="x", padx=10, pady=(0, 6))
+        self._chip_labels = {}
+        for st in STAGE_ORDER:
+            lbl = tk.Label(chips, text=STAGE_LABELS[st], font=("Segoe UI", 9), bg=CHIP_TODO, fg=FG, padx=8, pady=2)
+            lbl.pack(side="left", padx=(0, 6))
+            self._chip_labels[st] = lbl
+
+        # ---- 电量 ----
+        batt = ttk.Frame(self, style="Card.TFrame")
+        batt.pack(fill="x", padx=10, pady=(0, 6))
+        self._bars = {}
+        for key, label in (("L", "左耳"), ("R", "右耳"), ("C", "充电盒")):
+            row = ttk.Frame(batt, style="Card.TFrame")
+            row.pack(fill="x", pady=2)
+            ttk.Label(row, text=label, width=6, style="Muted.TLabel").pack(side="left")
+            bar = ttk.Progressbar(row, orient="horizontal", length=240, maximum=100, mode="determinate")
+            bar.pack(side="left", padx=(0, 6))
+            val = ttk.Label(row, text="—", width=14, style="Muted.TLabel")
+            val.pack(side="left")
+            self._bars[key] = (bar, val)
+
+        # ---- 降噪控制 ----
+        ctrl = ttk.Frame(self, style="Card.TFrame")
+        ctrl.pack(fill="x", padx=10, pady=(4, 4))
+        ttk.Label(ctrl, text="降噪", style="Muted.TLabel").pack(side="left", padx=(0, 6))
+        self._anc_btns = {}
+        for mode in (AncMode.ON, AncMode.OFF):
+            btn = ttk.Button(ctrl, text=("开" if mode == AncMode.ON else "关"), width=6,
+                             command=lambda m=mode: self.app.on_set_anc(self.session, m))
+            btn.pack(side="left", padx=(0, 6))
+            self._anc_btns[mode] = btn
+
+        lvl = ttk.Frame(self, style="Card.TFrame")
+        lvl.pack(fill="x", padx=10, pady=(0, 6))
+        ttk.Label(lvl, text="档位", width=6, style="Muted.TLabel").pack(side="left")
+        self._level_var = tk.IntVar(value=self.session.anc_level or 0)
+        self._level_label = ttk.Label(lvl, text=f"{self._level_var.get()}", width=4, style="Muted.TLabel")
+        self._level_label.pack(side="right")
+        scale = ttk.Scale(
+            lvl, from_=0, to=8, orient="horizontal", length=240,
+            variable=self._level_var, command=self._on_level_drag,
+        )
+        scale.pack(side="left", padx=(0, 6), fill="x", expand=True)
+        scale.bind("<ButtonRelease-1>", self._on_level_release)
+        scale.bind("<KeyRelease>", self._on_level_release)
+
+        # ---- 双击手势 ----
+        ges = ttk.Frame(self, style="Card.TFrame")
+        ges.pack(fill="x", padx=10, pady=(4, 8))
+        ttk.Label(ges, text="双击手势", style="Muted.TLabel").pack(side="left", padx=(0, 6))
+        self._g_left = tk.StringVar(value=GESTURE_ACTION_LABELS.get(
+            GestureAction(self.session.gesture_left) if self.session.gesture_left is not None else GestureAction.PLAY_PAUSE))
+        self._g_right = tk.StringVar(value=GESTURE_ACTION_LABELS.get(
+            GestureAction(self.session.gesture_right) if self.session.gesture_right is not None else GestureAction.PLAY_PAUSE))
+        left_cb = ttk.Combobox(ges, textvariable=self._g_left, values=GESTURE_ACTION_NAMES,
+                               width=10, state="readonly")
+        right_cb = ttk.Combobox(ges, textvariable=self._g_right, values=GESTURE_ACTION_NAMES,
+                                width=10, state="readonly")
+        ttk.Label(ges, text="左", style="Muted.TLabel").pack(side="left", padx=(0, 2))
+        left_cb.pack(side="left", padx=(0, 6))
+        ttk.Label(ges, text="右", style="Muted.TLabel").pack(side="left", padx=(0, 2))
+        right_cb.pack(side="left", padx=(0, 6))
+        ttk.Button(ges, text="应用", width=6,
+                   command=lambda: self.app.on_set_gesture(self.session, self._g_left.get(), self._g_right.get())).pack(side="left")
+
+    def _on_level_drag(self, value):
+        self._level_label.configure(text=str(int(float(value))))
+
+    def _on_level_release(self, event=None):
+        level = int(self._level_var.get())
+        self.app.on_set_anc_level(self.session, level)
+
+    def refresh(self):
+        st = self.session.stage
+        for s in STAGE_ORDER:
+            lbl = self._chip_labels[s]
+            lbl.configure(bg=STAGE_COLOR[s] if (st >= s and st != Stage.DISCONNECTED) else CHIP_TODO)
+
+        b = self.session.battery
+        mapping = [
+            ("L", b.left_percent if b else None, b.left_charging if b else False),
+            ("R", b.right_percent if b else None, b.right_charging if b else False),
+            ("C", b.case_percent if b else None, b.case_charging if b else False),
+        ]
+        for key, pct, charging in mapping:
+            bar, val = self._bars[key]
+            if pct is None:
+                bar["value"] = 0
+                val.configure(text="不可用", foreground=MUTED)
+            else:
+                bar["value"] = pct
+                txt = f"{pct}%"
+                if charging:
+                    txt += " ⚡"
+                    val.configure(foreground=GREEN)
+                else:
+                    val.configure(foreground=FG)
+                val.configure(text=txt)
+
+        active = self.session.anc_mode
+        for mode, btn in self._anc_btns.items():
+            try:
+                btn.configure(style="ActiveMode.TButton" if mode == active else "TButton")
+            except tk.TclError:
+                pass
+
+
+class HyperEarsApp:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.root.title("HyperEars PC · Huawei FreeBuds")
+        self.root.geometry("600x720")
+        self.style = ttk.Style()
+        self.style.theme_use("clam")
+        self._configure_style()
+
+        self.sessions: Dict[str, Tuple[EarbudSession, object, str]] = {}
+        self.devices: List[Tuple[str, str]] = []
+
+        self._build_ui()
+        self.set_status(
+            "就绪。「连接模拟设备」离线演示；「列出已配对设备」从系统读取已配对蓝牙地址（免手动输入），"
+            "双击即可通过 Windows 原生 RFCOMM 真实连接（免 winrt）。"
+        )
+
+    def _configure_style(self):
+        s = self.style
+        s.configure("TFrame", background=BG)
+        s.configure("Card.TFrame", background=PANEL, relief="flat")
+        s.configure("TLabel", background=BG, foreground=FG)
+        s.configure("Title.TLabel", background=PANEL, foreground=FG, font=("Segoe UI", 11, "bold"))
+        s.configure("Muted.TLabel", background=PANEL, foreground=MUTED, font=("Segoe UI", 9))
+        s.configure("TButton", background=PANEL2, foreground=FG, font=("Segoe UI", 9))
+        s.configure("ActiveMode.TButton", background=ACCENT, foreground="#06121f", font=("Segoe UI", 9, "bold"))
+        s.configure("TProgressbar", background=ACCENT, troughcolor=PANEL2)
+
+    def _build_ui(self):
+        top = ttk.Frame(self.root, style="TFrame")
+        top.pack(fill="x", padx=10, pady=8)
+        self.runtime = tk.Label(top, text="传输：模拟通道（默认）", bg=PANEL, fg=FG, font=("Segoe UI", 10), padx=10, pady=6, anchor="w")
+        self.runtime.pack(fill="x")
+
+        bar = ttk.Frame(self.root, style="TFrame")
+        bar.pack(fill="x", padx=10, pady=(0, 6))
+        ttk.Button(bar, text="列出已配对设备", command=self.on_enumerate).pack(side="left", padx=(0, 6))
+        self.huawei_only = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text="仅华为/荣耀", variable=self.huawei_only).pack(side="left", padx=(0, 6))
+        ttk.Button(bar, text="连接模拟设备", command=self.on_connect_sim).pack(side="left", padx=(0, 6))
+        ttk.Button(bar, text="断开全部", command=self.on_disconnect_all).pack(side="left")
+
+        self.listbox = tk.Listbox(self.root, bg=PANEL, fg=FG, height=5, font=("Segoe UI", 9))
+        self.listbox.pack(fill="x", padx=10, pady=(0, 4))
+        self.listbox.bind("<Double-1>", self.on_connect_listed)
+
+        canvas = tk.Canvas(self.root, bg=BG, highlightthickness=0)
+        scroll = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        self.cards = ttk.Frame(canvas, style="TFrame")
+        self.cards.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=self.cards, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=(0, 6))
+        scroll.pack(side="right", fill="y", pady=(0, 6))
+
+        self.status = tk.Label(self.root, text="", bg=PANEL2, fg=MUTED, anchor="w", font=("Segoe UI", 9), padx=10, pady=4)
+        self.status.pack(fill="x", side="bottom")
+
+    # ---- actions ----
+
+    def set_status(self, msg: str):
+        self.status.configure(text=msg)
+
+    def _register(self, session: EarbudSession, transport, kind: str):
+        if session.address in self.sessions:
+            return
+        card = SessionCard(self.cards, self, session, transport, kind, style="Card.TFrame")
+        card.pack(fill="x", pady=(0, 8))
+        self.sessions[session.address] = (session, transport, kind)
+        self._refresh_runtime()
+
+    def on_connect_sim(self):
+        addr, name = "AA:BB:CC:00:11:22", "HUAWEI FreeBuds 3"
+        session = EarbudSession(addr, name)
+        transport = SimulatedTransport(address=addr, device_name=name, profile=session.profile)
+        transport.connect()
+        session.stage = Stage.CHANNEL
+        self._run_initial(session, transport)
+        self._register(session, transport, "模拟通道")
+        self.set_status("已连接模拟设备（HUAWEI FreeBuds 3）。可切降噪/档位/手势，或「刷新」重新查询电量。")
+
+    def _connect_real_bg(self, addr: str, name: Optional[str]):
+        self.set_status(f"正在通过 Windows 原生 RFCOMM 连接 {addr} …")
+        threading.Thread(target=self._do_real_connect, args=(addr, name), daemon=True).start()
+
+    def _do_real_connect(self, addr: str, name: Optional[str]):
+        transport = WinSockRfcommTransport(address=addr, device_name=name)
+        try:
+            transport.connect()
+        except Exception as exc:  # pragma: no cover
+            self.root.after(0, lambda: self.set_status(f"真实连接失败：{exc}"))
+            return
+        session = EarbudSession(addr, name, transport.profile)
+        session.stage = Stage.CHANNEL
+        self._run_initial(session, transport)
+        self.root.after(0, self._register, session, transport, "真实连接")
+
+    def on_connect_listed(self, event=None):
+        sel = self.listbox.curselection()
+        if not sel or sel[0] >= len(self.devices):
+            return
+        name, mac = self.devices[sel[0]]
+        self._connect_real_bg(mac, name)
+
+    def _run_initial(self, session: EarbudSession, transport):
+        for cmd in session.initial_read_commands():
+            transport.send(cmd)
+            resp = transport.recv()
+            if resp:
+                session.offer(resp)
+
+    def on_refresh(self, session: EarbudSession):
+        _, transport, _ = self.sessions.get(session.address, (None, None, None))
+        if transport is None:
+            return
+        self._run_initial(session, transport)
+        for widget in self.cards.winfo_children():
+            if isinstance(widget, SessionCard) and widget.session is session:
+                widget.refresh()
+        self.set_status(f"已刷新：{session.display_name}（电量走 HFP，SPP 上可能无响应）")
+
+    def on_set_anc(self, session: EarbudSession, mode: AncMode):
+        _, transport, _ = self.sessions.get(session.address, (None, None, None))
+        if transport is None:
+            return
+        for cmd in session.encode_set_anc(mode):
+            transport.send(cmd)
+            transport.recv()
+        session.apply_anc(mode)
+        for widget in self.cards.winfo_children():
+            if isinstance(widget, SessionCard) and widget.session is session:
+                widget.refresh()
+        self.set_status(f"已发送：{session.display_name} → 降噪 {'开' if mode == AncMode.ON else '关'}")
+
+    def on_set_anc_level(self, session: EarbudSession, level: int):
+        _, transport, _ = self.sessions.get(session.address, (None, None, None))
+        if transport is None:
+            return
+        for cmd in session.encode_set_anc_level(level):
+            transport.send(cmd)
+            transport.recv()
+        session.apply_anc_level(level)
+        for widget in self.cards.winfo_children():
+            if isinstance(widget, SessionCard) and widget.session is session:
+                widget.refresh()
+        self.set_status(f"已发送：{session.display_name} → 降噪档位 {level}")
+
+    def on_set_gesture(self, session: EarbudSession, left_label: str, right_label: str):
+        _, transport, _ = self.sessions.get(session.address, (None, None, None))
+        if transport is None:
+            return
+        left_val = GESTURE_ACTION_VALUES[GESTURE_ACTION_NAMES.index(left_label)]
+        right_val = GESTURE_ACTION_VALUES[GESTURE_ACTION_NAMES.index(right_label)]
+        for side, val in ((GESTURE_LEFT, left_val), (GESTURE_RIGHT, right_val)):
+            for cmd in session.encode_gesture(side, val):
+                transport.send(cmd)
+                transport.recv()
+            session.apply_gesture(side, val)
+        for widget in self.cards.winfo_children():
+            if isinstance(widget, SessionCard) and widget.session is session:
+                widget.refresh()
+        self.set_status(f"已发送：{session.display_name} → 双击手势 左={left_label} / 右={right_label}")
+
+    def on_disconnect(self, session: EarbudSession):
+        _, transport, _ = self.sessions.get(session.address, (None, None, None))
+        if transport is not None:
+            transport.close()
+        session.stage = Stage.DISCONNECTED
+        for widget in self.cards.winfo_children():
+            if isinstance(widget, SessionCard) and widget.session is session:
+                widget.refresh()
+                widget.destroy()
+        self.sessions.pop(session.address, None)
+        self._refresh_runtime()
+        self.set_status(f"已断开：{session.display_name}")
+
+    def on_disconnect_all(self):
+        for addr, (session, transport, _) in list(self.sessions.items()):
+            transport.close()
+            session.stage = Stage.DISCONNECTED
+            for widget in self.cards.winfo_children():
+                if isinstance(widget, SessionCard) and widget.session is session:
+                    widget.destroy()
+        self.sessions.clear()
+        self._refresh_runtime()
+        self.set_status("已断开全部会话。")
+
+    def on_enumerate(self):
+        self.set_status("正在从系统注册表读取已配对蓝牙设备…")
+        self.listbox.delete(0, tk.END)
+        threading.Thread(target=self._enum_thread, daemon=True).start()
+
+    def _enum_thread(self):
+        all_found = list_paired_devices()
+        if self.huawei_only.get():
+            found = [(n, m) for n, m in all_found if is_family_name(n)]
+        else:
+            found = all_found
+        note = ""
+        if self.huawei_only.get() and not found and all_found:
+            found = all_found
+            note = "（型号名未命中华为关键词，已显示全部已配对设备）"
+        self.devices = found
+        self.root.after(0, self._update_device_list, found, note)
+
+    def _update_device_list(self, found: List[Tuple[str, str]], note: str = ""):
+        self.listbox.delete(0, tk.END)
+        if not found:
+            hint = (
+                "未发现任何已配对设备。"
+                + ("（取消「仅华为/荣耀」可看全部；或先在 Windows 设置里配对耳机）"
+                   if self.huawei_only.get() else "（先在 Windows 设置里配对耳机）")
+            )
+            self.listbox.insert(tk.END, hint)
+            self.set_status("枚举完成：未找到已配对的蓝牙设备。仍可用「连接模拟设备」。")
+            return
+        for name, mac in found:
+            self.listbox.insert(tk.END, f"{name}  ·  {mac}")
+        msg = f"枚举完成：发现 {len(found)} 台已配对设备。双击用 Windows 原生 RFCOMM 连接。"
+        if note:
+            msg += note
+        self.set_status(msg)
+
+    def _refresh_runtime(self):
+        n = len(self.sessions)
+        real = sum(1 for _, _, k in self.sessions.values() if k != "模拟通道")
+        self.runtime.configure(text=f"活动会话：{n}（真实连接：{real}）")
+
+
+def main():
+    root = tk.Tk()
+    HyperEarsApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
