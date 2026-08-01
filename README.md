@@ -1,10 +1,10 @@
 # TWS-Pods-PC
 
 Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三方依赖**把各家私有耳机控制通道
-（降噪 / 电量 / 手势）搬到 PC 上。目前支持 **vivo、Huawei FreeBuds、Moondrop（水月雨）**。
+（降噪 / 电量 / 手势）搬到 PC 上。目前支持 **vivo、Huawei、Moondrop（水月雨）**。
 
-- **真实连接**：`ctypes` 直接调 `ws2_32.dll` 的 Bluetooth Classic RFCOMM（免 WinRT）。
-- **设备枚举**：读注册表 `BTHPORT\Parameters\Devices`（免手输 MAC）。
+- **真实连接**：`ctypes` 直接调 `ws2_32.dll` 的 Bluetooth Classic RFCOMM。
+- **设备枚举**：读注册表 `BTHPORT\Parameters\Devices`。
 
 ## 支持的品牌
 
@@ -16,7 +16,7 @@ Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三�
 
 ## 目录结构
 
-三个子目录结构一致、彼此**不共享代码**（品牌间协议差异大，各跑各的最稳）：
+三个子目录结构一致、彼此**不共享代码**：
 
 ```
 <brand>/
