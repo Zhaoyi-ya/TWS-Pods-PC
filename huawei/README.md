@@ -116,4 +116,4 @@ ANC 关 : 5A 00 06 00 2B 04 01 01 00 68 21
 - 电量在 Windows 上依赖 HFP，SPP 查询大概率为空；如需稳定电量，需接入系统蓝牙 HFP 栈（超出本移植范围）。
 
 ## 许可
-本子项目基于 GPL-3.0 开源；统一许可与第三方声明见仓库根目录 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本子项目基于 GPL-3.0 开源；统一许可与第三方来源见仓库根目录 [LICENSE](LICENSE) 与根 README「许可证与致谢」一节。

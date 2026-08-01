@@ -77,15 +77,29 @@ python test_vivo.py    # 跑测试（vivo 例；其余对应 test_huawei.py / te
 
 ## 许可证与致谢
 
-本项目以 **GNU GPL-3.0-only** 发布（见 [`LICENSE`](LICENSE)）。上游 **HyperEars** 为 GPL-3.0-only，
-派生作品依法须以相同许可发布（不含“或更高版本”选项）。第三方来源、各自许可状态，以及本项目自己的
-实机抓包与验证结果，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+本项目整体以 **GNU GPL-3.0-only** 发布（见 [`LICENSE`](LICENSE)）。上游 **HyperEars** 为
+GPL-3.0-**only**（不含“或更高版本”选项），派生作品依法须以相同许可发布。
 
-在此致谢以下逆向工程项目（协议事实来源）：
+### 第三方来源与许可状态
+
+下列逆向工程工作是本协议实现的参考来源；各自许可状态与本项目的使用方式如下：
 
 - **OPPO Pods for Windows**（RFCOMM 连接方案 `ctypes` + 注册表枚举的参考原型）：
   <https://github.com/Zhaoyi-ya/OPPO-Pods-Win>
-- **HyperEars**（vivo / iQOO TWS 协议来源，GPL-3.0-only）
-- **HuaweiPods**（HUAWEI FreeBuds 控制协议来源，GPL-3.0）
-- **Pods-Protocol-Reverse-Engineering**（Star-ZER0，手工逆向记录；未声明许可证，仅作事实参考）
-- **1812z/OppoPods**、**moculll/ScrewVivoTWS**（协议研究参考）
+- **HyperEars**（vivo / iQOO TWS 协议来源）：**GNU GPL-3.0-only**，本仓库据此整体以 GPL-3.0-only 发布。
+- **HuaweiPods**（HUAWEI FreeBuds 控制协议来源）：基于 **GPL-3.0** 开源。
+- **Pods-Protocol-Reverse-Engineering**（Star-ZER0，手工逆向记录）：**未声明许可证，默认保留所有权利。**
+  在获得作者明确授权、或作者为其成果增补许可证之前，本仓库**不包含该仓库的任何源码或文档文件**，
+  仅将其**公开的协议事实**作为参考并予署名（协议规范属于事实，不受版权保护）；建议作者为其内容增补许可证以便社区合法复用。
+- **1812z/OppoPods**、**moculll/ScrewVivoTWS**：协议研究参考，以原仓库许可为准；本仓库仅作事实性参考，未复制其源码。
+
+### 本项目的贡献（实机抓包与验证结果）
+
+在上述事实来源之外，本仓库补充了：
+
+- **各品牌独立的 Python 实现**（`vivo/` `huawei/` `moondrop/`），零第三方依赖（纯 `ctypes` + 注册表 RFCOMM）。
+- **逐字节验证**：每个子目录的 `test_*.py` 对照逆向文档的协议向量做字节级断言——
+  vivo 13/13、huawei 18/18、moondrop 28/28 全部通过，帧编解码与文档逐字节一致。
+- **模拟器往返**（SimulatedTransport）覆盖握手 / 查询 / 设置 / 电量全链路。
+- **实机 RFCOMM 握手验证**：待用户在已配对真机上通过看板双击连接后补充
+  （部分机型 `connect()` 可能需指定 `channel=` 兜底；目前本机注册表枚举已验证可用）。

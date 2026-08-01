@@ -79,4 +79,4 @@ python app.py
   可改用 `PyBluezRfcommTransport`（`pip install pybluez`），其余逻辑通用。
 
 ## 许可
-本子项目随仓库整体以 GNU GPL-3.0-only 发布；统一许可与第三方声明见仓库根目录 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本子项目随仓库整体以 GNU GPL-3.0-only 发布；统一许可与第三方来源见仓库根目录 [LICENSE](LICENSE) 与根 README「许可证与致谢」一节。
