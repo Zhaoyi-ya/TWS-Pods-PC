@@ -1,5 +1,5 @@
 """
-HyperEars PC 看板（仅华为 FreeBuds）——Tkinter 实现
+HUAWEI Pods 看板（仅华为 FreeBuds）——Tkinter 实现
 
 信息架构与 vivo 版一致：设备会话列表 + 每设备卡片（识别/通道/协议/状态映射）
 + 顶部运行时卡片。
@@ -215,7 +215,7 @@ class SessionCard(ttk.Frame):
 class HyperEarsApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("HyperEars PC · Huawei FreeBuds")
+        self.root.title("HUAWEI Pods")
         self.root.geometry("600x720")
         self.style = ttk.Style()
         self.style.theme_use("clam")

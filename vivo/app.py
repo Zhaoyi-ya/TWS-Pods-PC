@@ -1,5 +1,5 @@
 """
-HyperEars PC 看板（仅 vivo）——Tkinter 实现
+vivo Pods 看板（仅 vivo）——Tkinter 实现
 
 对应上游 dashboard-ui-architecture.md 的「设备会话列表 + 每设备卡片（识别/通道/协议/
 状态映射）+ 顶部运行时卡片」信息架构，移植到桌面端。
@@ -146,7 +146,7 @@ class SessionCard(ttk.Frame):
 class HyperEarsApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("HyperEars PC · vivo TWS")
+        self.root.title("vivo Pods")
         self.root.geometry("580x680")
         self.style = ttk.Style()
         self.style.theme_use("clam")

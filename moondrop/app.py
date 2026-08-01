@@ -1,5 +1,5 @@
 """
-HyperEars PC 看板（仅 Moondrop 水月雨）——Tkinter 实现
+Moondrop Pods 看板（仅 Moondrop 水月雨）——Tkinter 实现
 
 信息架构与 vivo / Huawei 版一致：设备会话列表 + 每设备卡片（识别/通道/协议/状态映射）
 + 顶部运行时卡片。
@@ -159,7 +159,7 @@ class SessionCard(ttk.Frame):
 class HyperEarsApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("HyperEars PC · Moondrop 水月雨")
+        self.root.title("Moondrop Pods")
         self.root.geometry("600x640")
         self.style = ttk.Style()
         self.style.theme_use("clam")

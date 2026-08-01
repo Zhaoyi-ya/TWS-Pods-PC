@@ -5,7 +5,6 @@ Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三�
 
 - **真实连接**：`ctypes` 直接调 `ws2_32.dll` 的 Bluetooth Classic RFCOMM（免 WinRT）。
 - **设备枚举**：读注册表 `BTHPORT\Parameters\Devices`（免手输 MAC）。
-- 离线可跑：内置模拟器，无需真机即可演示完整管线。
 
 ## 支持的品牌
 
@@ -29,7 +28,6 @@ Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三�
 └── test_<brand>.py        # 单元测试
 ```
 
-> 想加新品牌（OPPO、小米…）？复制一个子目录、只改 `<brand>_protocol.py` 的帧/命令常量即可。
 
 ## 快速开始
 
@@ -39,7 +37,6 @@ python app.py      # 看板：点「列出已配对设备」→ 双击连接；�
 python test_vivo.py  # 跑测试（其余对应 test_huawei.py / test_moondrop.py）
 ```
 
-- **离线演示**：看板点「连接模拟设备」即可看到完整管线（含电量 / 降噪模拟）。
 - **真实连接**：先在 Windows 设置里配对耳机，看板点「列出已配对设备」，双击列表项走
   Windows 原生 RFCOMM 真实连接。
 
@@ -79,10 +76,7 @@ python test_vivo.py  # 跑测试（其余对应 test_huawei.py / test_moondrop.p
 
 - **HyperEars** —— vivo / iQOO TWS 的私有协议与连接方式（GAIA 帧结构、命令号、三套 wire Profile、电量编码）
 - **HuaweiPods** —— HUAWEI FreeBuds 控制协议（0x5A 私有帧 + CRC16/XMODEM、降噪/手势命令组）
-- **OPPO Pods for Windows** —— `ctypes` + 注册表 RFCOMM 真实连接与设备枚举方案
 - **Pods-Protocol-Reverse-Engineering**（Star-ZER0）—— Moondrop 手工逆向记录（GAIA 帧、降噪双字节映射、电量编码）
-- **moculll/ScrewVivoTWS** —— vivo TWS 3e 的 v3 参考 Profile（设置载荷 `mode 03`，见 `vivo_protocol.py`）
-- **1812z/OppoPods** —— 协议研究背景参考（OPPO Enco 系列，本项目未直接采用）
 
 ## License
 
