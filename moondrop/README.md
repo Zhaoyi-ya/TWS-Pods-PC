@@ -78,5 +78,11 @@ python app.py
 - **Linux / macOS**：`WinSockRfcommTransport` 仅 Windows；如需在 Linux/Raspberry Pi 上用，
   可改用 `PyBluezRfcommTransport`（`pip install pybluez`），其余逻辑通用。
 
-## 许可
-本子项目随仓库整体以 GNU GPL-3.0-only 发布；统一许可与第三方来源见仓库根目录 [LICENSE](LICENSE) 与根 README「许可证与致谢」一节。
+## 致谢
+
+- **Pods-Protocol-Reverse-Engineering**（Star-ZER0）—— Moondrop 手工逆向记录参考
+- **OPPO Pods for Windows** —— `ctypes` + 注册表 RFCOMM 连接方案参考原型
+
+## License
+
+随本仓库整体以 GNU GPL-3.0-only 发布，见根目录 [LICENSE](LICENSE)。

@@ -115,5 +115,12 @@ ANC 关 : 5A 00 06 00 2B 04 01 01 00 68 21
   若 `connect()` 报 WSA 错误，可尝试在 `WinSockRfcommTransport` 指定固定 `channel=`。
 - 电量在 Windows 上依赖 HFP，SPP 查询大概率为空；如需稳定电量，需接入系统蓝牙 HFP 栈（超出本移植范围）。
 
-## 许可
-本子项目基于 GPL-3.0 开源；统一许可与第三方来源见仓库根目录 [LICENSE](LICENSE) 与根 README「许可证与致谢」一节。
+## 致谢
+
+- **HuaweiPods** —— HUAWEI FreeBuds 控制协议（GPL-3.0）
+- **OPPO Pods for Windows** —— `ctypes` + 注册表 RFCOMM 连接方案参考原型
+- **Pods-Protocol-Reverse-Engineering**（Star-ZER0）—— 手工逆向记录参考
+
+## License
+
+随本仓库整体以 GNU GPL-3.0 发布，见根目录 [LICENSE](LICENSE)。

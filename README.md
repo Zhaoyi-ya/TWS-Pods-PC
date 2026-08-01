@@ -56,19 +56,16 @@ python test_vivo.py  # 跑测试（其余对应 test_huawei.py / test_moondrop.p
 - 华为电量走 HFP，SPP 上通常无回包 → 看板显示「电量未知」属预期。
 - 设置命令真机无 ACK（fire-and-forget），UI 做乐观更新，下次查询校正。
 
-## 许可证与致谢
+## 致谢
 
-本项目以 **GNU GPL-3.0-only** 发布（见 [`LICENSE`](LICENSE)）。上游 **HyperEars** 为 GPL-3.0-only，
-派生作品依法须以相同许可发布。
+本项目参考了以下逆向工程与开源项目：
 
-致谢以下逆向工程与开源项目（协议事实来源）：
+- **HyperEars** —— vivo / iQOO TWS 协议逆向（GPL-3.0-only）
+- **HuaweiPods** —— HUAWEI FreeBuds 控制协议（GPL-3.0）
+- **OPPO Pods for Windows** —— `ctypes` + 注册表 RFCOMM 连接方案参考原型
+- **Pods-Protocol-Reverse-Engineering**（Star-ZER0）—— 手工逆向记录参考
+- **1812z/OppoPods**、**moculll/ScrewVivoTWS** —— 协议研究参考
 
-- **HyperEars**（vivo / iQOO TWS 协议来源，GPL-3.0-only）
-- **HuaweiPods**（HUAWEI FreeBuds 控制协议来源，GPL-3.0）
-- **OPPO Pods for Windows**（`ctypes` + 注册表 RFCOMM 连接方案参考原型）：
-  <https://github.com/Zhaoyi-ya/OPPO-Pods-Win>
-- **Pods-Protocol-Reverse-Engineering**（Star-ZER0，手工逆向记录；未声明许可证，仅作事实参考）
-- **1812z/OppoPods**、**moculll/ScrewVivoTWS**（协议研究参考）
+## License
 
-**验证**：各子目录 `test_*.py` 对照逆向文档逐字节断言，vivo 13 / huawei 18 / moondrop 28 全部通过；
-模拟器往返覆盖握手 / 查询 / 设置 / 电量全链路；真机 RFCOMM 握手待实测。
+GNU GPL-3.0-only
