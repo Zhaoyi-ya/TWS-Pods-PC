@@ -114,3 +114,6 @@ ANC 关 : 5A 00 06 00 2B 04 01 01 00 68 21
 - 真机 RFCOMM 握手（隐式 SDP 通道解析）尚未在真实华为硬件上跑通，需用户在 GUI 双击设备验证；
   若 `connect()` 报 WSA 错误，可尝试在 `WinSockRfcommTransport` 指定固定 `channel=`。
 - 电量在 Windows 上依赖 HFP，SPP 查询大概率为空；如需稳定电量，需接入系统蓝牙 HFP 栈（超出本移植范围）。
+
+## 许可
+本子项目基于 GPL-3.0 开源；统一许可与第三方声明见仓库根目录 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

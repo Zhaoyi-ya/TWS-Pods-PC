@@ -119,3 +119,5 @@ FF [version] [flags] [payloadLen] [vendor_hi] [vendor_lo] [cmd_hi] [cmd_lo] [pay
 
 许可：与上游一致，GNU GPL-3.0-only。协议研究参考 1812z/OppoPods、Star-ZER0、
 moculll/ScrewVivoTWS 及原项目实机抓包。
+
+统一许可与第三方声明见仓库根目录 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
