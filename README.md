@@ -24,7 +24,7 @@ Windows 桌面端的 TWS 真无线耳机控制台：用**纯 Python、零第三�
 ├── <brand>_models.py     # 型号识别
 ├── transport.py           # 模拟 / 真实 RFCOMM / 注册表枚举
 ├── session.py             # 会话状态机
-├── app.py                 # Tkinter 暗色看板
+├── app.py                 # 主程序
 └── test_<brand>.py        # 单元测试
 ```
 
